@@ -1,0 +1,36 @@
+# .dockerignore
+# .gitignore
+# Build
+target/
+build/
+!target/*.jar
+*.jar
+*.war
+*.ear
+
+# Maven
+.m2/
+.mvn/
+mvnw*
+!mvnw
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.project
+.classpath
+
+# System
+.DS_Store
+Thumbs.db
+
+# Docker (si tu en as)
+.docker/
