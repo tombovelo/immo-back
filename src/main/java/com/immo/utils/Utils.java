@@ -7,9 +7,11 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.immo.dto.AlbumResponse;
+import com.immo.dto.AuthResponse;
 import com.immo.dto.MaisonResponse;
 import com.immo.dto.PhotoResponse;
 import com.immo.dto.ProprietaireResponse;
+import com.immo.dto.UserProfile;
 import com.immo.dto.UtilisateurResponse;
 import com.immo.error.NotFoundException;
 import com.immo.model.Album;
@@ -18,7 +20,7 @@ import com.immo.model.Photo;
 import com.immo.model.Proprietaire;
 import com.immo.model.Utilisateur;
 
-/// GESTION GEMETRIQUE COTE JAVA /////
+/// GESTION GEOMETRIQUE COTE JAVA /////
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Coordinate;
@@ -321,4 +323,31 @@ public class Utils {
         return geometryFactory.createPoint(new Coordinate(longitude, latitude));
     }
 
+    public static UserProfile mapToUserProfile(Proprietaire proprietaire) {
+        UserProfile profile = new UserProfile();
+        if (proprietaire.getUtilisateur() != null) {
+            profile.setId(proprietaire.getUtilisateur().getId());
+            profile.setEmail(proprietaire.getUtilisateur().getEmail());
+            profile.setRole(proprietaire.getUtilisateur().getRole());
+        }
+        profile.setProprietaireId(proprietaire.getId());
+        profile.setNom(proprietaire.getNom());
+        profile.setPrenom(proprietaire.getPrenom());
+        profile.setTelephone(proprietaire.getTelephone());
+        profile.setAdresse(proprietaire.getAdresse());
+        return profile;
+    }
+
+    public static AuthResponse mapToAuthResponse(UserProfile userProfile, String type, String token) {
+        AuthResponse authResponse = new AuthResponse();
+        UserProfile newUserProfile = new UserProfile();
+        newUserProfile.setId(userProfile.getId());
+        newUserProfile.setEmail(userProfile.getEmail());
+        newUserProfile.setRole(userProfile.getRole());
+        authResponse.setUserProfile(newUserProfile);
+        authResponse.setType(type);
+        authResponse.setToken(token);
+        return authResponse;
+    }   
+        
 }

@@ -1,7 +1,10 @@
 package com.immo.service;
 
+import com.immo.config.JwtUtils;
+import com.immo.dto.AuthResponse;
 import com.immo.dto.ProprietaireRequest;
 import com.immo.dto.ProprietaireResponse;
+import com.immo.dto.UserProfile;
 import com.immo.error.NotFoundException;
 import com.immo.model.Proprietaire;
 import com.immo.model.Utilisateur;
@@ -26,6 +29,7 @@ public class ProprietaireService {
 
     private final ProprietaireRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtils jwtUtils;
 
     public List<ProprietaireResponse> findAll() {
         return repository.findAll().stream()
@@ -51,7 +55,8 @@ public class ProprietaireService {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED, timeout = 30, rollbackFor = Exception.class)
-    public ProprietaireResponse register(ProprietaireRequest proprietaireRequest) {
+    public AuthResponse register(ProprietaireRequest proprietaireRequest) {
+        
         Proprietaire proprietaire = new Proprietaire();
         Utilisateur utilisateur = new Utilisateur();
         
@@ -77,7 +82,9 @@ public class ProprietaireService {
         proprietaire.setTelephone(proprietaireRequest.getTelephone());
 
         Proprietaire saved = repository.save(proprietaire);
-        return Utils.convertToResponse(saved);
+        UserProfile userProfile = Utils.mapToUserProfile(saved);
+        AuthResponse authResponse = Utils.mapToAuthResponse(userProfile, "Bearer", null);
+        return authResponse;
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED, timeout = 30, rollbackFor = Exception.class)
@@ -115,12 +122,22 @@ public class ProprietaireService {
         return Utils.convertToResponse(updated);
     }
 
-
-
     public Optional<ProprietaireResponse> getProprietaireByEmail(String email) {
         return repository.findByUtilisateur_Email(email)
             .map(Utils::convertToResponse);
     }
+
+    public Optional<AuthResponse> getLoginResponseByEmail(String email) {
+        return repository.findByUtilisateur_Email(email)
+            .map(proprietaire -> {
+                String token = jwtUtils.generateToken(email);
+                UserProfile userProfile = Utils.mapToUserProfile(proprietaire);
+                AuthResponse authResponse = Utils.mapToAuthResponse(userProfile, "Bearer", token);
+                return authResponse;
+            });
+    }
+
+
 
 }
 
