@@ -342,12 +342,15 @@ public class Utils {
         AuthResponse authResponse = new AuthResponse();
         UserProfile newUserProfile = new UserProfile();
         newUserProfile.setId(userProfile.getId());
+        newUserProfile.setProprietaireId(userProfile.getProprietaireId());
+        newUserProfile.setNom(userProfile.getNom());
         newUserProfile.setEmail(userProfile.getEmail());
+        newUserProfile.setPrenom(userProfile.getPrenom());
+        newUserProfile.setTelephone(userProfile.getTelephone());
         newUserProfile.setRole(userProfile.getRole());
         authResponse.setUserProfile(newUserProfile);
         authResponse.setType(type);
         authResponse.setToken(token);
         return authResponse;
-    }   
-        
+    }  
 }
