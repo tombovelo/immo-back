@@ -7,7 +7,6 @@ public class UserProfile {
     private Long id;
     private String email;
     private String role;
-    private Long proprietaireId;
     private String nom;
     private String prenom;
     private String telephone;

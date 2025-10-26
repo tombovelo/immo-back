@@ -326,11 +326,10 @@ public class Utils {
     public static UserProfile mapToUserProfile(Proprietaire proprietaire) {
         UserProfile profile = new UserProfile();
         if (proprietaire.getUtilisateur() != null) {
-            profile.setId(proprietaire.getUtilisateur().getId());
             profile.setEmail(proprietaire.getUtilisateur().getEmail());
             profile.setRole(proprietaire.getUtilisateur().getRole());
         }
-        profile.setProprietaireId(proprietaire.getId());
+        profile.setId(proprietaire.getId());
         profile.setNom(proprietaire.getNom());
         profile.setPrenom(proprietaire.getPrenom());
         profile.setTelephone(proprietaire.getTelephone());
@@ -342,12 +341,12 @@ public class Utils {
         AuthResponse authResponse = new AuthResponse();
         UserProfile newUserProfile = new UserProfile();
         newUserProfile.setId(userProfile.getId());
-        newUserProfile.setProprietaireId(userProfile.getProprietaireId());
         newUserProfile.setNom(userProfile.getNom());
         newUserProfile.setEmail(userProfile.getEmail());
         newUserProfile.setPrenom(userProfile.getPrenom());
         newUserProfile.setTelephone(userProfile.getTelephone());
         newUserProfile.setRole(userProfile.getRole());
+        newUserProfile.setAdresse(userProfile.getAdresse());
         authResponse.setUserProfile(newUserProfile);
         authResponse.setType(type);
         authResponse.setToken(token);
