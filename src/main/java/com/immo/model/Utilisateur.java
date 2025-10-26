@@ -19,6 +19,13 @@ public class Utilisateur {
 
     @Column(nullable = false)
     private String role;
+
+    @PrePersist
+    public void onCreate() {
+        if (this.role == null || this.role.trim().isEmpty()) {
+            this.role = "ROLE_PROPRIETAIRE";
+        }
+    }
 }
 
 
