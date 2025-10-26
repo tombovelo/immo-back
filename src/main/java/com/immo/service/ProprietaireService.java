@@ -33,21 +33,21 @@ public class ProprietaireService {
 
     public List<ProprietaireResponse> findAll() {
         return repository.findAll().stream()
-            .map(Utils::convertToResponse)  // Ajouter "this::"
-            .collect(Collectors.toList());
+                .map(Utils::convertToResponse) // Ajouter "this::"
+                .collect(Collectors.toList());
     }
 
-    public Optional<Proprietaire> findById(Long id) { 
-        return repository.findById(id); 
+    public Optional<Proprietaire> findById(Long id) {
+        return repository.findById(id);
     }
 
     public Optional<ProprietaireResponse> findResponseById(Long id) {
         return repository.findById(id)
-            .map(Utils::convertToResponse);
+                .map(Utils::convertToResponse);
     }
 
-    public void deleteById(Long id) { 
-        repository.deleteById(id); 
+    public void deleteById(Long id) {
+        repository.deleteById(id);
     }
 
     public boolean existsById(Long id) {
@@ -56,20 +56,22 @@ public class ProprietaireService {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED, timeout = 30, rollbackFor = Exception.class)
     public AuthResponse register(ProprietaireRequest proprietaireRequest) {
-        
+
+        String token = null;
         Proprietaire proprietaire = new Proprietaire();
         Utilisateur utilisateur = new Utilisateur();
         
         // Remplir utilisateur
-        utilisateur.setEmail(proprietaireRequest.getUtilisateur().getEmail());
-
-        utilisateur.setPassword(
-            passwordEncoder.encode(proprietaireRequest.getUtilisateur().getPassword())
-        );
-
-        if (proprietaireRequest.getUtilisateur().getRole() != null && 
-            !proprietaireRequest.getUtilisateur().getRole().isEmpty()) {
-            utilisateur.setRole(proprietaireRequest.getUtilisateur().getRole());
+        if (proprietaireRequest.getUtilisateur() != null) {
+            String email = proprietaireRequest.getUtilisateur().getEmail();
+            token = jwtUtils.generateToken(email);
+            utilisateur.setEmail(email);
+            utilisateur.setPassword(
+                    passwordEncoder.encode(proprietaireRequest.getUtilisateur().getPassword()));
+            if (proprietaireRequest.getUtilisateur().getRole() != null &&
+                    !proprietaireRequest.getUtilisateur().getRole().isEmpty()) {
+                utilisateur.setRole(proprietaireRequest.getUtilisateur().getRole());
+            }
         }
 
         // Associer utilisateur au propriétaire
@@ -83,14 +85,14 @@ public class ProprietaireService {
 
         Proprietaire saved = repository.save(proprietaire);
         UserProfile userProfile = Utils.mapToUserProfile(saved);
-        AuthResponse authResponse = Utils.mapToAuthResponse(userProfile, "Bearer", null);
+        AuthResponse authResponse = Utils.mapToAuthResponse(userProfile, "Bearer", token);
         return authResponse;
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED, timeout = 30, rollbackFor = Exception.class)
     public ProprietaireResponse update(Long id, ProprietaireRequest request) {
         Proprietaire existing = repository.findById(id)
-            .orElseThrow(() -> new NotFoundException("Aucun propriétaire trouvé avec id : " + id));
+                .orElseThrow(() -> new NotFoundException("Aucun propriétaire trouvé avec id : " + id));
 
         // Mettre à jour les champs simples
         existing.setNom(request.getNom());
@@ -108,7 +110,8 @@ public class ProprietaireService {
         // ⚠️ Conserver l'id existant
         utilisateur.setEmail(request.getUtilisateur().getEmail());
 
-        // Ne mettre à jour le mot de passe que si l'utilisateur fournit un nouveau mot de passe
+        // Ne mettre à jour le mot de passe que si l'utilisateur fournit un nouveau mot
+        // de passe
         if (request.getUtilisateur().getPassword() != null && !request.getUtilisateur().getPassword().isEmpty()) {
             utilisateur.setPassword(passwordEncoder.encode(request.getUtilisateur().getPassword()));
         }
@@ -124,20 +127,17 @@ public class ProprietaireService {
 
     public Optional<ProprietaireResponse> getProprietaireByEmail(String email) {
         return repository.findByUtilisateur_Email(email)
-            .map(Utils::convertToResponse);
+                .map(Utils::convertToResponse);
     }
 
     public Optional<AuthResponse> getLoginResponseByEmail(String email) {
         return repository.findByUtilisateur_Email(email)
-            .map(proprietaire -> {
-                String token = jwtUtils.generateToken(email);
-                UserProfile userProfile = Utils.mapToUserProfile(proprietaire);
-                AuthResponse authResponse = Utils.mapToAuthResponse(userProfile, "Bearer", token);
-                return authResponse;
-            });
+                .map(proprietaire -> {
+                    String token = jwtUtils.generateToken(email);
+                    UserProfile userProfile = Utils.mapToUserProfile(proprietaire);
+                    AuthResponse authResponse = Utils.mapToAuthResponse(userProfile, "Bearer", token);
+                    return authResponse;
+                });
     }
 
-
-
 }
-
