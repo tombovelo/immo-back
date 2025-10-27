@@ -10,7 +10,7 @@ import java.util.HashMap;
 @EqualsAndHashCode(callSuper = true)
 public class ApiValidationError extends ApiBaseError {
     
-    private Map<String, String> validationErrors = new HashMap<>();
+    private Map<String, String> errors = new HashMap<>();
 
     public ApiValidationError() {
         super();
@@ -22,12 +22,12 @@ public class ApiValidationError extends ApiBaseError {
     }
 
     // ✅ Méthode utilitaire pour ajouter une erreur
-    public void addValidationError(String field, String errorMessage) {
-        this.validationErrors.put(field, errorMessage);
+    public void addValidationError(String field, String message) {
+        this.errors.put(field, message);
     }
 
     // ✅ Vérifier s'il y a des erreurs de validation
     public boolean hasValidationErrors() {
-        return !validationErrors.isEmpty();
+        return !errors.isEmpty();
     }
 }
