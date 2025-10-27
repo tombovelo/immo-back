@@ -51,10 +51,6 @@ public class PhotoController {
     @PostMapping("/upload")
     public ResponseEntity<PhotoResponse> uploadPhoto(@Valid @ModelAttribute PhotoUploadRequest request) {
 
-        if (request.getFile() == null || request.getFile().isEmpty()) {
-            throw new NotFoundException("Vous n'avez selectionner aucun fichier");
-        }
-
         // Vérifier que l'album existe
         Album album = albumService.findById(request.getAlbumId())
             .orElseThrow(() -> new NotFoundException("Album non trouvé pour l'id : " + request.getAlbumId()));

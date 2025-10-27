@@ -5,10 +5,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 public class PhotoUploadRequest {
 
-    @NotNull(message = "L'album ID est obligatoire")
+    @NotNull(message = "Album obligatoire")
     private Long albumId;
 
-    @NotNull(message = "Le fichier est obligatoire")
+    @NotNull(message = "fichier obligatoire")
     private MultipartFile file;
 
     private String description;
