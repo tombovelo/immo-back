@@ -1,9 +1,6 @@
 package com.immo.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,21 +12,15 @@ public class Proprietaire {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ✅ Nom obligatoire avec validation
-    @NotBlank(message = "Le nom est obligatoire")
     @Column(nullable = false, length = 100)
     private String nom;
 
     @Column(nullable = true, length = 100)
     private String prenom;
 
-    @Pattern(regexp = "^(\\+261|0)[0-9]{9}$", message = "Le numero doit etre de la forme +261342123236 ou 0326124546")
-    @NotBlank(message = "Le numero de telephone obligatoire")
     @Column(nullable = false, length = 20)
     private String telephone;
 
-    // ✅ Adresse optionnelle
-    @Size(max = 200, message = "L'adresse ne peut pas dépasser 200 caractères")
     @Column(length = 200)
     private String adresse;
 

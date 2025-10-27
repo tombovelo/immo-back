@@ -1,7 +1,6 @@
 package com.immo.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Entity
@@ -12,11 +11,9 @@ public class Utilisateur {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "L'eamil est obligatoire")
     @Column(unique = true, nullable = false)
     private String email;
 
-    @NotBlank(message = "le mots de passe est obligatoire")
     @Column(nullable = false)
     private String password;
 
