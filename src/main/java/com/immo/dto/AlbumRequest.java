@@ -6,9 +6,9 @@ import lombok.Data;
 
 @Data
 public class AlbumRequest {
-    @NotBlank(message = "Le nom de l'album est obligatoire")
+    @NotBlank(message = "nom de l'album obligatoire")
     private String nomAlbum;
     private String description;
-    @NotNull(message = "La maison est obligatoire")
+    @NotNull(message = "maison obligatoire")
     private Long maisonId;
 }

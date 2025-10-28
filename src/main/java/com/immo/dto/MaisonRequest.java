@@ -9,32 +9,32 @@ public class MaisonRequest {
     
     private String adresse;
 
-    @NotBlank(message = "La ville est obligatoire")
+    @NotBlank(message = "ville obligatoire")
     private String ville;
 
     private String codePostal;
 
-    @NotNull(message = "Le nombre de pièces est obligatoire")
+    @NotNull(message = "nombre de pièces obligatoire")
     @Positive(message = "Le nombre de pièces doit être positif")
     private Integer nombrePieces;
 
-    @NotNull(message = "Le prix est obligatoire")
+    @NotNull(message = "prix obligatoire")
     @Positive(message = "Le prix doit être positif")
     private Double prix;
 
     private String description;
 
-    @NotNull(message = "La latitude est obligatoire")
+    @NotNull(message = "latitude obligatoire")
     private Double latitude;
 
-    @NotNull(message = "La longitude est obligatoire")
+    @NotNull(message = "longitude obligatoire")
     private Double longitude;
 
     private Boolean visible;
     
-    @NotNull(message = "Le propriétaire est obligatoire")
+    @NotNull(message = "propriétaire obligatoire")
     private Long proprietaireId;
     
-    @NotNull(message = "Le type de transaction est obligatoire")
+    @NotNull(message = "type de transaction obligatoire")
     private Long typeTransactionId;
 }
