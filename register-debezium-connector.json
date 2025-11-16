@@ -1,0 +1,31 @@
+{
+    "name": "immo-outbox-connector",
+    "config": {
+        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "tasks.max": "1",
+        "database.hostname": "postgres",
+        "database.port": "5432",
+        "database.user": "tombovelo",
+        "database.password": "tombovelo",
+        "database.dbname": "dbimmobilier",
+        "table.include.list": "public.outbox_event",
+        "topic.prefix": "immo-db-server",
+        "plugin.name": "pgoutput",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false",
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "key.converter.schemas.enable": "false",
+        
+        "transforms": "unwrap,router",
+        "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+        "transforms.unwrap.drop.tombstones": "false",
+
+        "transforms.router.type": "io.debezium.transforms.ByLogicalTableRouter",
+        "transforms.router.topic.regex": "immo-db-server.public.outbox_event",
+        "transforms.router.topic.replacement": "outbox.events",
+
+        "topic.creation.default.replication.factor": "1",
+        "topic.creation.default.partitions": "1",
+        "publication.autocreate.mode": "filtered"
+    }
+}

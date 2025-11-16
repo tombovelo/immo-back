@@ -1,0 +1,110 @@
+# Version de la syntaxe Docker Compose. '3.8' est une version stable et recommandée.
+version: '3.8'
+
+# 'services' est la section principale où nous définissons chaque conteneur.
+services:
+  # Service pour la base de données PostgreSQL.
+  postgres:
+    image: postgis/postgis:13-3.4 # Utilise une image qui inclut PostgreSQL 13 et PostGIS 3.4.
+    container_name: postgres
+    ports: # Mappe les ports entre votre machine (hôte) et le conteneur.
+      - "5432:5432" # Permet de se connecter à la DB depuis votre PC via localhost:5432.
+    environment:
+      # Variables d'environnement pour configurer PostgreSQL au premier démarrage.
+      POSTGRES_DB: dbimmobilier
+      POSTGRES_USER: tombovelo
+      POSTGRES_PASSWORD: tombovelo
+    volumes:
+      # Monte un volume nommé pour persister les données de la base de données.
+      # Crucial pour ne pas perdre vos données si le conteneur est recréé.
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck: # Vérifie si la base de données est prête à accepter des connexions.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Zookeeper est une dépendance requise pour Kafka. Il gère la coordination entre les brokers Kafka.
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # Le broker Kafka, le cœur de notre système de messagerie.
+  kafka:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    depends_on: # S'assure que Zookeeper est démarré avant Kafka.
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      # Indique à Kafka où trouver Zookeeper. 'zookeeper' est le nom du service.
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Configuration réseau complexe mais nécessaire pour que Kafka soit accessible
+      # à la fois depuis les autres conteneurs (localhost:29092) et depuis votre machine (localhost:9092).
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      # Il se connecte à 'localhost:9092' qui est le listener PLAINTEXT_HOST.
+      test: ["CMD-SHELL", "cub kafka-ready -b localhost:9092 1 60"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+  # Kafka Connect est une plateforme pour exécuter des connecteurs. Nous l'utilisons pour Debezium.
+  kafka-connect:
+    image: debezium/connect:2.1
+    container_name: kafka-connect
+    ports:
+      - "8083:8083"
+    depends_on: # Dépend de Kafka pour pouvoir y publier des messages.
+      - kafka
+    environment:
+      # Indique à Kafka Connect où trouver le broker Kafka.
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: 1
+      # Topics internes utilisés par Kafka Connect pour stocker ses configurations et états.
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+
+  # Le service pour votre application Spring Boot !
+  immo-backend:
+    container_name: immo-backend
+    # 'build: .' dit à Docker Compose de construire une image en utilisant le Dockerfile
+    # qui se trouve dans le même dossier que ce docker-compose.yml.
+    build: .
+    ports: # Expose le port de votre application.
+      - "8080:8080"
+    depends_on: # Définit l'ordre de démarrage.
+      postgres:
+        condition: service_healthy # Ne démarre PAS tant que le healthcheck de postgres n'est pas 'healthy'.
+      kafka:
+        condition: service_healthy # Attend que le healthcheck de Kafka réussisse.
+    environment:
+      # Ici, on surcharge les valeurs de application.properties pour que l'application
+      # se connecte aux autres conteneurs en utilisant leurs noms de service comme noms d'hôte.
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/dbimmobilier
+      - DATABASE_USERNAME=tombovelo
+      - DATABASE_PASSWORD=tombovelo
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092 # Doit correspondre au listener interne de Kafka (PLAINTEXT)
+      # Passe les variables d'environnement de votre machine (hôte) au conteneur.
+      # Assurez-vous que ces variables sont définies sur votre PC.
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+
+# Déclare le volume nommé utilisé par le service postgres.
+# Cela permet à Docker de gérer cet espace de stockage.
+volumes:
+  postgres_data:
+

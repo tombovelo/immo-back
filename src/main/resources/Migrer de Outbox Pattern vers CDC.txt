@@ -1,0 +1,476 @@
+Migrer de Outbox Pattern vers CDC :
+-----------------------------------
+
+Nous allons remplacer votre système actuel, où votre application vérifie la base de données toutes les 30 secondes (@Scheduled), par une architecture moderne et en temps réel.
+
+1 - Avant : Application → demande toutes les 30s → Base de données
+2 - Après : Base de données → notifie instantanément → Debezium → Kafka → Application
+
+Étape 1 : Ajouter la dépendance Kafka dans pom.xml
+ <!-- Dépendance pour l'intégration avec Apache Kafka -->
+  <dependency>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka</artifactId>
+  </dependency>
+
+Étape 2 : Configurer le Consommateur Kafka
+# ===============================
+# KAFKA CONSUMER CONFIG
+# ===============================
+# Adresse du serveur Kafka. Utilise la variable d'environnement KAFKA_BOOTSTRAP_SERVERS si elle existe, sinon localhost:9092.
+spring.kafka.consumer.bootstrap-servers=${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+# Identifiant unique pour le groupe de consommateurs. Kafka l'utilise pour suivre les messages qui ont été lus.
+spring.kafka.consumer.group-id=immo-app
+# 'earliest' signifie que si notre consommateur est nouveau, il lira tous les messages depuis le début.
+spring.kafka.consumer.auto-offset-reset=earliest
+# Classes pour désérialiser la clé et la valeur des messages Kafka (qui arrivent sous forme de bytes).
+spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+spring.kafka.consumer.value-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+
+
+Étape 3 : Remplacer le Polling par un Listener Kafka
+
+Le fichier OutboxProcessorService.java n'est plus nécessaire. Vous pouvez le supprimer. Il est basé sur une tâche planifiée qui est moins efficace que notre nouvelle approche. 
+Explication : Ce nouveau service contient une méthode handleOutboxEvent annotée avec @KafkaListener. Cette annotation transforme la méthode en un consommateur actif. Dès qu'un message arrive dans le topic Kafka outbox.events, cette méthode est automatiquement appelée avec le contenu du message. La logique de traitement (processEvent) que vous aviez déjà écrite est entièrement réutilisée ici.
+
+
+Étape 4 : Orchestrer toute l'infrastructure avec Docker Compose : 
+-> docker-compose.yml
+
+# Version de la syntaxe Docker Compose. '3.8' est une version stable et recommandée.
+version: '3.8'
+
+# 'services' est la section principale où nous définissons chaque conteneur.
+services:
+  # Service pour la base de données PostgreSQL.
+  postgres:
+    image: postgres:13 # Utilise l'image officielle de PostgreSQL, version 13.
+    container_name: postgres
+    ports: # Mappe les ports entre votre machine (hôte) et le conteneur.
+      - "5432:5432" # Permet de se connecter à la DB depuis votre PC via localhost:5432.
+    environment:
+      # Variables d'environnement pour configurer PostgreSQL au premier démarrage.
+      POSTGRES_DB: dbimmobilier
+      POSTGRES_USER: tombovelo
+      POSTGRES_PASSWORD: tombovelo
+    volumes:
+      # Monte un volume nommé pour persister les données de la base de données.
+      # Crucial pour ne pas perdre vos données si le conteneur est recréé.
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck: # Vérifie si la base de données est prête à accepter des connexions.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Zookeeper est une dépendance requise pour Kafka. Il gère la coordination entre les brokers Kafka.
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # Le broker Kafka, le cœur de notre système de messagerie.
+  kafka:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    depends_on: # S'assure que Zookeeper est démarré avant Kafka.
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      # Indique à Kafka où trouver Zookeeper. 'zookeeper' est le nom du service.
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Configuration réseau complexe mais nécessaire pour que Kafka soit accessible
+      # à la fois depuis les autres conteneurs (localhost:29092) et depuis votre machine (localhost:9092).
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  # Kafka Connect est une plateforme pour exécuter des connecteurs. Nous l'utilisons pour Debezium.
+  kafka-connect:
+    image: debezium/connect:2.1
+    container_name: kafka-connect
+    ports:
+      - "8083:8083"
+    depends_on: # Dépend de Kafka pour pouvoir y publier des messages.
+      - kafka
+    environment:
+      # Indique à Kafka Connect où trouver le broker Kafka.
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: 1
+      # Topics internes utilisés par Kafka Connect pour stocker ses configurations et états.
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+
+  # Le service pour votre application Spring Boot !
+  immo-backend:
+    container_name: immo-backend
+    # 'build: .' dit à Docker Compose de construire une image en utilisant le Dockerfile
+    # qui se trouve dans le même dossier que ce docker-compose.yml.
+    build: .
+    ports: # Expose le port de votre application.
+      - "8080:8080"
+    depends_on: # Définit l'ordre de démarrage.
+      postgres:
+        condition: service_healthy # Ne démarre PAS tant que le healthcheck de postgres n'est pas 'healthy'.
+      kafka:
+        condition: service_started # Attend que le conteneur Kafka soit démarré.
+    environment:
+      # Ici, on surcharge les valeurs de application.properties pour que l'application
+      # se connecte aux autres conteneurs en utilisant leurs noms de service comme noms d'hôte.
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/dbimmobilier
+      - DATABASE_USERNAME=tombovelo
+      - DATABASE_PASSWORD=tombovelo
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092 # Notez 'kafka:9092' au lieu de 'localhost'.
+      # Passe les variables d'environnement de votre machine (hôte) au conteneur.
+      # Assurez-vous que ces variables sont définies sur votre PC.
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+
+# Déclare le volume nommé utilisé par le service postgres.
+# Cela permet à Docker de gérer cet espace de stockage.
+volumes:
+  postgres_data:
+
+
+
+Étape 5 : Configurer Debezium pour surveiller votre table
+-> Ce fichier JSON est la configuration du connecteur Debezium. Vous l'enverrez à l'API de Kafka Connect.
+{
+    "name": "immo-outbox-connector",
+    "config": {
+        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "tasks.max": "1",
+        "database.hostname": "postgres",
+        "database.port": "5432",
+        "database.user": "tombovelo",
+        "database.password": "tombovelo",
+        "database.dbname": "dbimmobilier",
+        "database.server.name": "immo-db-server",
+        "table.include.list": "public.outbox_event",
+        "plugin.name": "pgoutput",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false",
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "key.converter.schemas.enable": "false",
+        
+        "transforms": "unwrap,router",
+        "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+        "transforms.unwrap.drop.tombstones": "false",
+
+        "transforms.router.type": "io.debezium.transforms.ByLogicalTableRouter",
+        "transforms.router.topic.regex": "immo-db-server.public.outbox_event",
+        "transforms.router.topic.replacement": "outbox.events",
+
+        "topic.creation.default.replication.factor": "1",
+        "topic.creation.default.partitions": "1",
+        "publication.autocreate.mode": "filtered"
+    }
+}
+
+Étape 6 : Lancement et Vérification 
+1 - Arrêtez les anciens conteneurs 
+-> docker-compose down
+
+2 - Construisez et lancez toute l'architecture en arrière-plan :
+-> docker-compose up --build -d
+
+3 - Consultez les logs de votre application pour voir si elle démarre correctement :
+-> docker-compose logs -f immo-backend
+
+4 - Activez la réplication logique sur PostgreSQL (à ne faire qu'une seule fois) :
+-> docker exec -it postgres psql -U tombovelo dbimmobilier
+
+5 - Dans psql, exécutez la commande SQL suivante pour autoriser la réplication :
+-> ALTER USER tombovelo WITH REPLICATION;
+-> ALTER SYSTEM SET wal_level = logical;
+
+6 - Enregistrez le connecteur Debezium. Exécutez cette commande curl dans votre terminal. Elle envoie le contenu de votre fichier JSON à l'API de Kafka Connect.
+-> curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d @register-debezium-connector.json
+
+
+
+CONFIGURATION DE OUTBOX-PATERNE
+-------------------------------
+
+1 - Annoter la class main par :
+-> @EnableScheduling
+2 - annoter la methode de la class par : 
+->  @Scheduled(fixedRate = 30000) // Exécute toutes les 30 secondes
+
+2 - creation de la class OutboxProcessorService :
+
+package com.immo.service; // Assurez-vous que le nom du package est correct
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.immo.error.NotFoundException;
+import com.immo.model.Album;
+import com.immo.model.Maison;
+import com.immo.model.OutboxEvent;
+import com.immo.model.Photo;
+import com.immo.model.Proprietaire;
+import com.immo.repository.MaisonRepository;
+import com.immo.repository.OutboxEventRepository;
+import com.immo.repository.PhotoRepository;
+import com.immo.repository.ProprietaireRepository;
+import com.immo.repository.AlbumRepository;
+import com.immo.utils.Utils;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class OutboxProcessorService {
+
+    private static final int BATCH_SIZE = 2; // Taille du lot à traiter
+
+    private final OutboxEventRepository outboxEventRepository;
+    private final CloudinaryService cloudinaryService;
+    private final ObjectMapper objectMapper;
+    private final Executor outboxEventExecutor;
+    private final PhotoRepository photoRepository;
+    private final ProprietaireRepository proprietaireRepository;
+    private final MaisonRepository maisonRepository;
+    private final AlbumRepository albumRepository;
+
+
+    @Scheduled(fixedRate = 30000) // Exécute toutes les 30 secondes
+    public void processOutboxEvents() {
+        // 1. Récupérer un lot d'événements (pagination)
+        Page<OutboxEvent> eventPage = outboxEventRepository.findByProcessedFalse(PageRequest.of(0, BATCH_SIZE));
+        List<OutboxEvent> events = eventPage.getContent();
+
+        if (events.isEmpty()) {
+            return; // Rien à faire
+        }
+
+        log.info("Traitement de {} événement(s) en attente...", events.size());
+
+        // 2. Traiter les événements en parallèle
+        List<CompletableFuture<OutboxEvent>> futures = events.stream()
+                .map(event -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        processEvent(event);
+                        return event; // Retourner l'événement en cas de succès
+                    } catch (Exception e) {
+                        log.error(
+                                "Échec du traitement de l'événement Outbox {}. Il sera réessayé plus tard. Erreur: {}",
+                                event.getId(), e.getMessage());
+                        return null; // Retourner null en cas d'échec
+                    }
+                }, outboxEventExecutor))
+                .collect(Collectors.toList());
+
+        // Attendre que tous les traitements soient terminés
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        // 3. Mettre à jour en base de données en un seul lot
+        List<OutboxEvent> processedEvents = futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull) // Filtrer les événements qui ont échoué (null)
+                .peek(event -> event.setProcessed(true))
+                .collect(Collectors.toList());
+
+        if (!processedEvents.isEmpty()) {
+            outboxEventRepository.saveAll(processedEvents);
+            log.info("{} événement(s) marqués comme traités.", processedEvents.size());
+        }
+    }
+
+    // La méthode processEvent reste inchangée
+    private void processEvent(OutboxEvent event) throws IOException {
+        switch (event.getEventType()) {
+            case "PROPRIETAIRE_FOLDER_DELETED":
+                Proprietaire deletedProprietaire = objectMapper.readValue(event.getPayload(), Proprietaire.class);
+                if (deletedProprietaire.getDossier() != null && !deletedProprietaire.getDossier().isEmpty()) {
+                    String dossierProprietaire = Utils.getRootFolder(deletedProprietaire.getDossier());
+                    cloudinaryService.deleteFolder(dossierProprietaire);
+                    log.info("Événement PROPRIETAIRE_FOLDER_DELETED traité pour proprietaire ID: {}.",
+                            deletedProprietaire.getId());
+                }
+                break;
+
+            case "PROPRIETAIRE_PHOTO_UPLOAD_REQUESTED":
+                Map<String, Object> proprietairePayload = objectMapper.readValue(event.getPayload(),
+                        new TypeReference<>() {
+                        });
+                Long proprietaireId = ((Number) proprietairePayload.get("proprietaireId")).longValue();
+                byte[] proprietaireFileContent = Base64.getDecoder()
+                        .decode((String) proprietairePayload.get("fileContent"));
+
+                Proprietaire proprietaireToUpdate = proprietaireRepository.findById(proprietaireId)
+                        .orElseThrow(() -> new NotFoundException(
+                                "Proprietaire non trouvé pour l'ID: " + proprietaireId + ". L'upload est annulé."));
+
+                Map<String, Object> proprietaireUploadResult = cloudinaryService
+                        .uploadPhoto(
+                                proprietaireFileContent,
+                                cloudinaryService.getBasePath() + "/" + proprietaireToUpdate.getNom() + "_"
+                                        + proprietaireToUpdate.getId() + "/profile");
+
+                proprietaireToUpdate.setUrlProfile(proprietaireUploadResult.get("secure_url").toString());
+                proprietaireToUpdate.setCloudinaryPublicId(proprietaireUploadResult.get("public_id").toString());
+                String dossierProprietaire = Utils
+                        .getRootFolder(proprietaireUploadResult.get("asset_folder").toString());
+                proprietaireToUpdate.setDossier(dossierProprietaire);
+                proprietaireRepository.save(proprietaireToUpdate);
+                log.info(
+                        "Événement PROPRIETAIRE_PHOTO_UPLOAD_REQUESTED traité. Photo de profil pour Proprietaire ID {} uploadée sur Cloudinary.",
+                        proprietaireId);
+                break;
+
+            case "PROPRIETAIRE_PHOTO_DELETE_REQUESTED":
+                Map<String, Object> proprietaireIdPyload = objectMapper.readValue(event.getPayload(),
+                        new TypeReference<>() {
+                        });
+                Long proprietairId = ((Number) proprietaireIdPyload.get("proprietaireId")).longValue();
+                Proprietaire proprietaire = proprietaireRepository.findById(proprietairId)
+                        .orElseThrow(() -> new NotFoundException(
+                                "Proprietaire non trouvé pour l'ID: " + proprietairId + ". L'upload est annulé."));
+                cloudinaryService.deletePhoto(proprietaire.getCloudinaryPublicId());
+                log.info("Événement PROPRIETAIRE_PHOTO_DELETE_REQUESTED traité pour proprietaire ID: {}.",
+                        proprietaire.getId());
+                break;
+
+            case "MAISON_FOLDER_DELETED":
+                Map<String, Object> maisonPayloads = objectMapper.readValue(event.getPayload(), new TypeReference<>() {
+                });
+                String dossierMaisons = (String) maisonPayloads.get("dossier");
+                Long maisonIdForLog = ((Number) maisonPayloads.get("maisonId")).longValue();
+
+                if (dossierMaisons != null && !dossierMaisons.isEmpty()) {
+                    cloudinaryService.deleteFolder(dossierMaisons);
+                    log.info("Événement MAISON_FOLDER_DELETED traité. Dossier {} pour la maison ID {} supprimé de Cloudinary.",
+                            dossierMaisons, maisonIdForLog);
+                }
+                break;
+
+            case "MAISON_PHOTO_UPLOAD_REQUESTED":
+                Map<String, Object> maisonPayload = objectMapper.readValue(event.getPayload(), new TypeReference<>() {
+                });
+                Long maisonId = ((Number) maisonPayload.get("maisonId")).longValue();
+                byte[] maisonFileContent = Base64.getDecoder().decode((String) maisonPayload.get("fileContent"));
+                Maison maisonToUpdate = maisonRepository.findById(maisonId)
+                        .orElseThrow(() -> new NotFoundException(
+                                "Maison non trouvée pour l'ID: " + maisonId + ". L'upload est annulé."));
+                // Construire le dossier Cloudinary :
+                // immobilier/proprietaire_{id}/maisons_{id}/image
+                String cloudinaryFolder = String.format("%s/%s_%d/maisons_%d/image",
+                        cloudinaryService.getBasePath(),
+                        maisonToUpdate.getProprietaire().getNom(),
+                        maisonToUpdate.getProprietaire().getId(),
+                        maisonToUpdate.getId());
+
+                Map<String, Object> maisonUploadResult = cloudinaryService.uploadPhoto(maisonFileContent,
+                        cloudinaryFolder);
+
+                maisonToUpdate.setCloudinaryUrl(maisonUploadResult.get("secure_url").toString());
+                maisonToUpdate.setCloudinaryPublicId(maisonUploadResult.get("public_id").toString());
+                String dossierMaison = Utils.getRootFolder(maisonUploadResult.get("asset_folder").toString());
+                maisonToUpdate.setDossier(dossierMaison);
+
+                maisonRepository.save(maisonToUpdate);
+                log.info(
+                        "Événement MAISON_PHOTO_UPLOAD_REQUESTED traité. Photo pour la maison ID {} uploadée sur Cloudinary.",
+                        maisonId);
+                break;
+
+            case "ALBUM_CREATED":
+                Map<String, Object> albumPayload = objectMapper.readValue(event.getPayload(), new TypeReference<>() {});
+                Long albumId = ((Number) albumPayload.get("albumId")).longValue();
+
+                Album createdAlbum = albumRepository.findById(albumId)
+                    .orElseThrow(() -> new NotFoundException("Album non trouvé avec l'ID: " + albumId + " lors du traitement de l'événement."));
+                
+                // Construire le path Cloudinary
+                String path = String.format(
+                    "%s/%s_%d/maisons_%d/%s_%d", cloudinaryService.getBasePath(),
+                    createdAlbum.getMaison().getProprietaire().getNom(),
+                    createdAlbum.getMaison().getProprietaire().getId(),
+                    createdAlbum.getMaison().getId(),
+                    createdAlbum.getNomAlbum(), createdAlbum.getId());
+                    
+                // Mettre à jour l'album avec le path et sauvegarder
+                createdAlbum.setPath(path);
+                albumRepository.save(createdAlbum);
+                // Créer le dossier sur Cloudinary
+                cloudinaryService.createFolder(path);
+                log.info("Événement ALBUM_CREATED traité. Dossier Cloudinary créé pour l'album ID: {}.", createdAlbum.getId());
+                break;
+
+            case "ALBUM_DELETED":
+                Album deletedAlbum = objectMapper.readValue(event.getPayload(), Album.class);
+                cloudinaryService.deleteAlbum(deletedAlbum.getPath());
+                log.info("Événement ALBUM_DELETED traité pour l'album ID: {}", deletedAlbum.getId());
+                break;
+
+            case "PHOTO_UPLOAD_REQUESTED":
+                // 1. Désérialiser le payload en une Map
+                Map<String, Object> payload = objectMapper.readValue(event.getPayload(), new TypeReference<>() {
+                });
+                Long photoId = ((Number) payload.get("photoId")).longValue();
+                // Jackson encode les byte[] en Base64 (String), il faut donc les décoder.
+                byte[] fileContent = Base64.getDecoder().decode((String) payload.get("fileContent"));
+
+                // 2. Récupérer l'entité Photo depuis la base de données
+                Photo photoToUpload = photoRepository.findById(photoId)
+                        .orElseThrow(() -> new RuntimeException(
+                                "Photo non trouvée pour l'ID: " + photoId + ". L'upload est annulé."));
+
+                // 3. Uploader le contenu binaire vers Cloudinary
+                Map<String, Object> uploadResult = cloudinaryService.uploadPhoto(fileContent, photoToUpload.getAlbum());
+
+                // 4. Mettre à jour l'entité avec les informations de Cloudinary
+                photoToUpload.setCloudinaryUrl(uploadResult.get("url").toString());
+                photoToUpload.setCloudinaryPublicId(uploadResult.get("public_id").toString());
+                photoRepository.save(photoToUpload);
+                log.info("Événement PHOTO_UPLOAD_REQUESTED traité. Photo ID {} uploadée sur Cloudinary.", photoId);
+                break;
+
+            case "PHOTO_DELETED":
+                Map<String, String> deletePayload = objectMapper.readValue(event.getPayload(), new TypeReference<>() {
+                });
+                String publicIdToDelete = deletePayload.get("publicId");
+                if (publicIdToDelete != null && !publicIdToDelete.isEmpty()) {
+                    cloudinaryService.deletePhoto(publicIdToDelete);
+                    log.info("Événement PHOTO_DELETED traité pour le public_id: {}", publicIdToDelete);
+                }
+                break;
+        }
+    }
+}
+
+COMMANDE POUR RESTARTER LE SERVICE 
+-> docker-compose restart postgres
+
+
+
+
+
+

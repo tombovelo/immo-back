@@ -18,12 +18,16 @@ public interface MaisonRepository extends JpaRepository<Maison, Long> {
     @Query("SELECT m FROM Maison m JOIN FETCH m.proprietaire WHERE m.id = :id")
     Optional<Maison> findByIdWithProprietaire(Long id);
 
+    @Query("SELECT m FROM Maison m JOIN FETCH m.proprietaire p WHERE p.id = :proprietaireId")
+    List<Maison> findAllByProprietaireId(@Param("proprietaireId") Long proprietaireId);
+
     @Query(value = """
     SELECT m.* FROM maison m
     INNER JOIN proprietaire p ON m.proprietaire_id = p.id
     INNER JOIN type_transaction t ON m.type_transaction_id = t.id
     WHERE 
-        (:ville IS NULL OR LOWER(m.ville) LIKE LOWER(CONCAT('%', :ville, '%')))
+        (:adresse IS NULL OR LOWER(m.adresse) LIKE LOWER(CONCAT('%', :adresse, '%')))
+        AND (:ville IS NULL OR LOWER(m.ville) LIKE LOWER(CONCAT('%', :ville, '%')))
         AND (:minPrix IS NULL OR m.prix >= :minPrix)
         AND (:maxPrix IS NULL OR m.prix <= :maxPrix)
         AND (:typeTransactionId IS NULL OR t.id = :typeTransactionId)
@@ -41,6 +45,7 @@ public interface MaisonRepository extends JpaRepository<Maison, Long> {
         )
     """, nativeQuery = true)
     List<Maison> searchMaisons(
+        @Param("adresse") String adresse,
         @Param("ville") String ville,
         @Param("minPrix") Double minPrix,
         @Param("maxPrix") Double maxPrix,

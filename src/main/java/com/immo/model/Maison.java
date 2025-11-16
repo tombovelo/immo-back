@@ -5,6 +5,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.locationtech.jts.geom.Point;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 @Entity
 @Table(name = "maison")
 public class Maison {
@@ -18,6 +21,15 @@ public class Maison {
     @Column(nullable = false, length = 100)
     private String ville;
 
+    @Column(nullable = true)
+    private String dossier;
+
+    @Column(nullable = true)
+    private String cloudinaryUrl;
+
+    @Column(nullable = true)
+    private String cloudinaryPublicId;
+    
     @Column(length = 10)
     private String codePostal;
 
@@ -41,6 +53,7 @@ public class Maison {
 
     @ManyToOne
     @JoinColumn(name = "proprietaire_id", nullable = false)
+    @JsonBackReference("proprietaire-maisons") // Côté "enfant" de la relation afficher
     private Proprietaire proprietaire;
 
     @ManyToOne
@@ -48,6 +61,7 @@ public class Maison {
     private TypeTransaction typeTransaction;
 
     @OneToMany(mappedBy = "maison", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference("maison-albums") // Côté "parent" de la relation afficher
     private List<Album> albums;
 
     @PrePersist
@@ -60,6 +74,12 @@ public class Maison {
     public void setId(Long id) { this.id = id; }
     public Proprietaire getProprietaire() { return proprietaire; }
     public void setProprietaire(Proprietaire proprietaire) { this.proprietaire = proprietaire; }
+    public String getDossier() { return dossier; }
+    public void setDossier(String dossier) { this.dossier = dossier; }
+    public String getCloudinaryUrl() { return cloudinaryUrl; }
+    public void setCloudinaryUrl(String cloudinaryUrl) { this.cloudinaryUrl = cloudinaryUrl; }
+    public String getCloudinaryPublicId() { return cloudinaryPublicId; }
+    public void setCloudinaryPublicId(String cloudinaryPublicId) { this.cloudinaryPublicId = cloudinaryPublicId; }
     public TypeTransaction getTypeTransaction() { return typeTransaction; }
     public void setTypeTransaction(TypeTransaction typeTransaction) { this.typeTransaction = typeTransaction; }
     public String getAdresse() { return adresse; }

@@ -7,4 +7,5 @@ import com.immo.model.Utilisateur;
 @Repository
 public interface UtilisateurRepository extends JpaRepository<Utilisateur,Long> {
     Utilisateur findByEmail(String username);
+    boolean existsByEmail(String email);
 }

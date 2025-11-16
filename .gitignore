@@ -41,4 +41,5 @@ build/
 #Ignorer ces fichier
 src/main/resources/deployement-api.txt
 src/main/resources/ToDoList.txt
-src/main/resources/base.sql
+src/main/resources/base.
+src/main/Migrer de Outbox Pattern vers CDC.txt

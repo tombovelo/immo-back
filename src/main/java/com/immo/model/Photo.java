@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 @Entity
 @Table(name = "photo")
 public class Photo {
@@ -17,12 +19,12 @@ public class Photo {
     @Column(name = "nom_fichier", nullable = false, length = 255)
     private String nomFichier;
 
-    @NotBlank(message = "L'id cloudinary est obligatoire")
-    @Column(name = "cloudinary_public_id", nullable = false)
+    //@NotBlank(message = "L'id cloudinary est obligatoire")
+    @Column(name = "cloudinary_public_id", nullable = true)
     private String cloudinaryPublicId;
 
-    @NotBlank(message = "L'url est obligatoire")
-    @Column(name = "cloudinary_url", nullable = false)
+    //@NotBlank(message = "L'url est obligatoire")
+    @Column(name = "cloudinary_url", nullable = true)
     private String cloudinaryUrl;
 
     @Column(length = 500)
@@ -39,6 +41,7 @@ public class Photo {
     @NotNull(message = "L'album est obligatoire")
     @ManyToOne
     @JoinColumn(name = "album_id", nullable = false)
+    @JsonBackReference("album-photos") // Côté "enfant" de la relation afficher
     private Album album;
 
     @PrePersist

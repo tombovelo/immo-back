@@ -1,11 +1,10 @@
 package com.immo.controller;
 
-import java.util.Optional;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,7 +14,6 @@ import com.immo.dto.AuthResponse;
 import com.immo.dto.LoginRequest;
 import com.immo.dto.ProprietaireRequest;
 import com.immo.error.AuthException;
-import com.immo.service.CloudinaryService;
 import com.immo.service.ProprietaireService;
 
 import jakarta.validation.Valid;
@@ -28,11 +26,9 @@ public class RegistrationLoginController {
 
     private final ProprietaireService proprietaireService;
     private final AuthenticationManager authenticationManager;
-    private final CloudinaryService cloudinaryService;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody ProprietaireRequest proprietaire) {
-        cloudinaryService.createProprietaire(proprietaire);
+    public ResponseEntity<AuthResponse> register(@Valid @ModelAttribute ProprietaireRequest proprietaire) {
         AuthResponse saved = proprietaireService.register(proprietaire);
         return ResponseEntity.ok(saved);
     }
@@ -47,7 +43,7 @@ public class RegistrationLoginController {
                 )
             );
             if (authentication.isAuthenticated()) {
-                Optional<AuthResponse> authResponse = proprietaireService.getLoginResponseByEmail(
+                AuthResponse authResponse = proprietaireService.getLoginResponseByEmail(
                     loginRequest.getEmail()
                 );
                 return ResponseEntity.ok(authResponse);

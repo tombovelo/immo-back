@@ -12,6 +12,9 @@ public class ProprietaireResponse {
     private String prenom;
     private String telephone;
     private String adresse;
+    private String dossier;
+    private String urlProfile;
+    private String cloudinaryPublicId;
     private LocalDateTime dateCreation;
     private UtilisateurResponse utilisateur;
     @JsonIgnoreProperties({"proprietaire"})

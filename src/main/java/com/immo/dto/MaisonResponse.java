@@ -17,6 +17,9 @@ public class MaisonResponse {
     private Integer nombrePieces;
     private Double prix;
     private String description;
+    private String dossier;
+    private String cloudinaryUrl;
+    private String cloudinaryPublicId;
     private Double latitude;
     private Double longitude;
     private LocalDateTime dateCreation;

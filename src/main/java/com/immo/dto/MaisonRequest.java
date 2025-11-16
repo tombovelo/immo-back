@@ -1,4 +1,6 @@
 package com.immo.dto;
+import org.springframework.web.multipart.MultipartFile;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -32,9 +34,8 @@ public class MaisonRequest {
 
     private Boolean visible;
     
-    @NotNull(message = "propriétaire obligatoire")
-    private Long proprietaireId;
-    
     @NotNull(message = "type de transaction obligatoire")
     private Long typeTransactionId;
+
+    private MultipartFile file; // Image principale de la maison
 }

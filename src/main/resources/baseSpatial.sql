@@ -13,19 +13,19 @@ DROP TABLE IF EXISTS type_transaction CASCADE;
 DROP TABLE IF EXISTS mois CASCADE;
 DROP TABLE IF EXISTS statut_paiement CASCADE;
 
+-- Table admin
+CREATE TABLE admin (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(100) NOT NULL,
+    password VARCHAR(200) NOT NULL
+);
+
 -- Table users
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255),
     role VARCHAR(255)
-);
-
--- Table admin
-CREATE TABLE admin (
-    id BIGSERIAL PRIMARY KEY,
-    email VARCHAR(100) NOT NULL,
-    password VARCHAR(200) NOT NULL
 );
 
 -- Table proprietaire
@@ -134,3 +134,6 @@ INSERT INTO mois (numero, nom) VALUES
 -- Insertion données statut_paiement
 INSERT INTO statut_paiement (nom) VALUES
 ('PAYE'), ('NON_PAYE'), ('EN_ATTENTE');
+
+UPDATE users SET role = 'ROLE_ADMIN' WHERE id = '1';
+

@@ -6,6 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 @Entity
 @Table(name = "album")
 public class Album {
@@ -17,8 +20,7 @@ public class Album {
     @Column(name = "nom_album", nullable = false, length = 100)
     private String nomAlbum;
 
-    @NotBlank(message = "Le path de l'album est obligatoire")
-    @Column(nullable = false, length = 100)
+    @Column(nullable = true, length = 100)
     private String path;
 
     @Column(length = 500)
@@ -33,9 +35,11 @@ public class Album {
     @NotNull(message = "La maison est obligatoire")
     @ManyToOne
     @JoinColumn(name = "maison_id", nullable = false)
+    @JsonBackReference("maison-albums") // Côté "enfant" de la relation afficher
     private Maison maison;
 
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference("album-photos") // Côté "parent" de la relation afficher
     private List<Photo> photos;
 
     @PrePersist

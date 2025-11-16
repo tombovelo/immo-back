@@ -25,6 +25,9 @@ public class JwtUtils {
     @Value("${app.expiration-time}")
     private long expirationTime;
 
+    @Value("${app.clock-skew-seconds}")
+    private long clockSkewSeconds;
+
     public String generateToken(String email) {
         Map<String, Object> claims = new HashMap<>();
        return createToken(claims, email); 
@@ -67,12 +70,13 @@ public class JwtUtils {
         return claimsResolver.apply(claims); 
     }
        
-    private Claims extractAllClaims(String token) {
+    public Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
-            .setSigningKey(getSignKey())
-            .build()
-            .parseClaimsJws(token)
-            .getBody();
+                .setSigningKey(getSignKey())
+                .setAllowedClockSkewSeconds(clockSkewSeconds) // Utilise le décalage d'horloge configuré
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }
   

@@ -9,7 +9,8 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
-public class ProprietaireRequest {
+public class ProprietaireAdminRequest {
+
     // ✅ Nom obligatoire avec validation
     @NotBlank(message = "nom obligatoire")
     private String nom;
@@ -22,5 +23,6 @@ public class ProprietaireRequest {
     private MultipartFile file;
     @NotNull(message = "utilisateur obligatoire")
     @Valid
-    private ProfileUserRequest utilisateur;
+    private ProfileAdminRequest utilisateur;
 }
+

@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.immo.dto.AlbumResponse;
 import com.immo.dto.AuthResponse;
@@ -79,6 +81,9 @@ public class Utils {
         ProprietaireResponse dto = new ProprietaireResponse();
         dto.setId(proprietaire.getId());
         dto.setNom(proprietaire.getNom());
+        dto.setDossier(proprietaire.getDossier());
+        dto.setUrlProfile(proprietaire.getUrlProfile());
+        dto.setCloudinaryPublicId(proprietaire.getCloudinaryPublicId());
         dto.setPrenom(proprietaire.getPrenom());
         dto.setTelephone(proprietaire.getTelephone());
         dto.setAdresse(proprietaire.getAdresse());
@@ -108,7 +113,10 @@ public class Utils {
             maisonResponse.setPrix(maison.getPrix());
             maisonResponse.setDescription(maison.getDescription());
             maisonResponse.setVisible(maison.getVisible());
-
+            maisonResponse.setDossier(maison.getDossier());
+            maisonResponse.setCloudinaryUrl(maison.getCloudinaryUrl());
+            maisonResponse.setCloudinaryPublicId(maison.getCloudinaryPublicId());
+            
             if (maison.getCoordinate() != null) {
                 maisonResponse.setLatitude(maison.getCoordinate().getY());
                 maisonResponse.setLongitude(maison.getCoordinate().getX());
@@ -121,6 +129,9 @@ public class Utils {
                 ProprietaireResponse proprietaireLight = new ProprietaireResponse();
                 proprietaireLight.setId(maison.getProprietaire().getId());
                 proprietaireLight.setNom(maison.getProprietaire().getNom());
+                proprietaireLight.setDossier(maison.getProprietaire().getDossier());
+                proprietaireLight.setUrlProfile(maison.getProprietaire().getUrlProfile());
+                proprietaireLight.setCloudinaryPublicId(maison.getProprietaire().getCloudinaryPublicId());
                 proprietaireLight.setPrenom(maison.getProprietaire().getPrenom());
                 proprietaireLight.setTelephone(maison.getProprietaire().getTelephone());
                 proprietaireLight.setAdresse(maison.getProprietaire().getAdresse());
@@ -154,7 +165,10 @@ public class Utils {
         maisonResponse.setPrix(maison.getPrix());
         maisonResponse.setDescription(maison.getDescription());
         maisonResponse.setVisible(maison.getVisible());
-
+        maisonResponse.setDossier(maison.getDossier());
+        maisonResponse.setCloudinaryUrl(maison.getCloudinaryUrl());
+        maisonResponse.setCloudinaryPublicId(maison.getCloudinaryPublicId());
+        
         if (maison.getCoordinate() != null) {
             maisonResponse.setLatitude(maison.getCoordinate().getY());
             maisonResponse.setLongitude(maison.getCoordinate().getX());
@@ -166,6 +180,9 @@ public class Utils {
             ProprietaireResponse proprietaireLight = new ProprietaireResponse();
             proprietaireLight.setId(maison.getProprietaire().getId());
             proprietaireLight.setNom(maison.getProprietaire().getNom());
+            proprietaireLight.setDossier(maison.getProprietaire().getDossier());
+            proprietaireLight.setUrlProfile(maison.getProprietaire().getUrlProfile());
+            proprietaireLight.setCloudinaryPublicId(maison.getProprietaire().getCloudinaryPublicId());
             proprietaireLight.setPrenom(maison.getProprietaire().getPrenom());
             proprietaireLight.setTelephone(maison.getProprietaire().getTelephone());
             proprietaireLight.setAdresse(maison.getProprietaire().getAdresse());
@@ -190,6 +207,9 @@ public class Utils {
                 maisonLight.setId(album.getMaison().getId());
                 maisonLight.setAdresse(album.getMaison().getAdresse());
                 maisonLight.setVille(album.getMaison().getVille());
+                maisonLight.setDossier(album.getMaison().getDossier());
+                maisonLight.setCloudinaryUrl(album.getMaison().getCloudinaryUrl());
+                maisonLight.setCloudinaryPublicId(album.getMaison().getCloudinaryPublicId());
                 maisonLight.setCodePostal(album.getMaison().getCodePostal());
                 maisonLight.setNombrePieces(album.getMaison().getNombrePieces());
                 maisonLight.setPrix(album.getMaison().getPrix());
@@ -230,6 +250,9 @@ public class Utils {
             maisonLight.setId(album.getMaison().getId());
             maisonLight.setAdresse(album.getMaison().getAdresse());
             maisonLight.setVille(album.getMaison().getVille());
+            maisonLight.setDossier(album.getMaison().getDossier());
+            maisonLight.setCloudinaryUrl(album.getMaison().getCloudinaryUrl());
+            maisonLight.setCloudinaryPublicId(album.getMaison().getCloudinaryPublicId());
             maisonLight.setCodePostal(album.getMaison().getCodePostal());
             maisonLight.setNombrePieces(album.getMaison().getNombrePieces());
             maisonLight.setPrix(album.getMaison().getPrix());
@@ -327,9 +350,11 @@ public class Utils {
         UserProfile profile = new UserProfile();
         if (proprietaire.getUtilisateur() != null) {
             profile.setEmail(proprietaire.getUtilisateur().getEmail());
-            profile.setRole(proprietaire.getUtilisateur().getRole());
+            //profile.setRole(proprietaire.getUtilisateur().getRole());
+            profile.setId(proprietaire.getUtilisateur().getId());
         }
-        profile.setId(proprietaire.getId());
+        //profile.setId(proprietaire.getId());
+        profile.setUrlProfile(proprietaire.getUrlProfile());
         profile.setNom(proprietaire.getNom());
         profile.setPrenom(proprietaire.getPrenom());
         profile.setTelephone(proprietaire.getTelephone());
@@ -345,11 +370,25 @@ public class Utils {
         newUserProfile.setEmail(userProfile.getEmail());
         newUserProfile.setPrenom(userProfile.getPrenom());
         newUserProfile.setTelephone(userProfile.getTelephone());
-        newUserProfile.setRole(userProfile.getRole());
+        newUserProfile.setUrlProfile(userProfile.getUrlProfile());
+       // newUserProfile.setRole(userProfile.getRole());
         newUserProfile.setAdresse(userProfile.getAdresse());
         authResponse.setUserProfile(newUserProfile);
         authResponse.setType(type);
         authResponse.setToken(token);
         return authResponse;
     }  
+
+    public static String getRootFolder(String fullPath) {
+        if (fullPath == null || fullPath.isBlank()) {
+            return null;
+        }
+        // Cette expression régulière capture la partie du chemin avant le dernier segment.
+        Pattern pattern = Pattern.compile("^(.*)/[^/]+$");
+        Matcher matcher = pattern.matcher(fullPath);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
 }
