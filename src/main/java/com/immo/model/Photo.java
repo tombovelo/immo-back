@@ -19,11 +19,9 @@ public class Photo {
     @Column(name = "nom_fichier", nullable = false, length = 255)
     private String nomFichier;
 
-    //@NotBlank(message = "L'id cloudinary est obligatoire")
     @Column(name = "cloudinary_public_id", nullable = true)
     private String cloudinaryPublicId;
 
-    //@NotBlank(message = "L'url est obligatoire")
     @Column(name = "cloudinary_url", nullable = true)
     private String cloudinaryUrl;
 
