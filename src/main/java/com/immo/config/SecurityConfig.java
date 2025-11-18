@@ -96,7 +96,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
             "http://localhost:5173",
             "http://localhost:5174",
-            "https://ton-site-front.onrender.com" // 👈 ton domaine front déployé
+            "https://immo-front-07gg.onrender.com" // 👈 ton domaine front déployé
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
